@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Эволюция Монстров: РПГ Кликер</title>
+    <script src="https://yandex.ru/games/sdk/v2"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+            margin: 0;
+            padding: 0;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        html, body {
+            touch-action: manipulation;
+            overscroll-behavior: none;
+        }
+
+        img { -webkit-user-drag: none; }
+
+        body {
+            background-color: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 450px;
+            height: 100%;
+            max-height: 850px;
+            position: relative;
+            background: url('background1.png') no-repeat center center;
+            background-size: cover;
+            border: 4px solid #333;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            transition: background 0.5s ease;
+        }
+
+        #top-bar {
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #ffd700;
+            padding: 8px;
+            text-align: center;
+            color: #ffd700;
+            border-radius: 8px;
+            text-shadow: 2px 2px #000;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            z-index: 3;
+        }
+
+        #gold-display { font-size: 24px; font-weight: bold; }
+        #rebirth-display { font-size: 11px; color: #00ffcc; font-weight: bold; }
+
+        #monster-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex-grow: 1;
+            position: relative;
+        }
+
+        #monster-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 5px;
+            z-index: 3;
+        }
+
+        #monster-info {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex-grow: 1;
+        }
+
+        .nav-arrow-btn {
+            background: #2d1a1e;
+            border: 2px solid #ffd700;
+            color: #ffd700;
+            padding: 6px 14px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 6px;
+            box-shadow: 0 3px #000;
+            transition: all 0.05s;
+        }
+
+        .nav-arrow-btn:active { transform: translateY(2px); box-shadow: 0 1px #000; }
+
+        .nav-arrow-btn:disabled {
+            background: #222;
+            border-color: #555;
+            color: #555;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        #monster-name {
+            color: #fff;
+            font-size: 18px;
+            text-shadow: 2px 2px #000;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        #kill-counter {
+            color: #00ffcc;
+            font-size: 13px;
+            font-weight: bold;
+            text-shadow: 1px 1px #000;
+            margin-top: 3px;
+        }
+
+        #buffs-container {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 10px;
+            height: 24px;
+        }
+
+        .buff-badge {
+            background: #1565c0;
+            border: 1px solid #90caf9;
+            color: #fff;
+            padding: 3px 8px;
+            font-size: 11px;
+            font-weight: bold;
+            border-radius: 4px;
+            text-shadow: 1px 1px #000;
+            animation: pulse-badge 1s infinite alternate;
+        }
+
+        @keyframes pulse-badge {
+            0% { opacity: 0.8; transform: scale(1); }
+            100% { opacity: 1; transform: scale(1.05); }
+        }
+
+        .bar-container {
+            width: 85%;
+            height: 18px;
+            background: #222;
+            border: 2px solid #fff;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .bar-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            transition: width 0.05s ease;
+        }
+
+        #hp-bar { background: #ff0000; }
+        #stamina-bar { background: #ffaa00; }
+
+        .bar-text {
+            position: relative;
+            color: #fff;
+            font-size: 12px;
+            font-weight: bold;
+            text-shadow: 1px 1px #000;
+            z-index: 2;
+        }
+
+        #monster-sprite {
+            width: 220px;
+            height: 220px;
+            cursor: pointer;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            transition: transform 0.05s ease;
+            margin-top: 15px;
+            z-index: 1;
+        }
+
+        .hit { animation: hit-anim 0.1s ease-in-out; }
+
+        @keyframes hit-anim {
+            0% { transform: scale(1); filter: brightness(1.8) sepia(1) hue-rotate(-50deg); }
+            50% { transform: scale(0.85); }
+            100% { transform: scale(1); filter: none; }
+        }
+
+        .shake-screen { animation: screen-shake-anim 0.4s ease-in-out; }
+
+        @keyframes screen-shake-anim {
+            0%, 100% { transform: translate(0, 0); }
+            20%, 60% { transform: translate(-10px, 5px); }
+            40%, 80% { transform: translate(10px, -5px); }
+        }
+
+        .damage-pop {
+            position: absolute;
+            color: #ff3333;
+            font-size: 32px;
+            font-weight: bold;
+            text-shadow: 2px 2px #000;
+            pointer-events: none;
+            animation: fly-up 0.4s ease-out forwards;
+            z-index: 5;
+        }
+
+        .damage-pop.crit {
+            color: #ffea00;
+            font-size: 40px;
+            animation: fly-up-crit 0.45s ease-out forwards;
+        }
+
+        @keyframes fly-up-crit {
+            0% { transform: translateY(0) scale(1) rotate(-10deg); opacity: 1; }
+            100% { transform: translateY(-100px) scale(1.3) rotate(10deg); opacity: 0; }
+        }
+
+        .warn-pop {
+            position: absolute;
+            color: #ff5500;
+            font-size: 36px;
+            font-weight: bold;
+            text-shadow: 2px 2px #000;
+            pointer-events: none;
+            animation: shake-up 0.5s ease-out forwards;
+            z-index: 5;
+        }
+
+        @keyframes fly-up {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-80px) scale(1.2); opacity: 0; }
+        }
+
+        @keyframes shake-up {
+            0% { transform: translateY(0) translateX(-5px); opacity: 1; }
+            50% { transform: translateY(-20px) translateX(5px); }
+            100% { transform: translateY(-40px); opacity: 0; }
+        }
+
+        #shop-button-container {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            z-index: 3;
+        }
+
+        #btn-open-shop {
+            width: 90%;
+            background: #8e24aa;
+            border: 3px solid #ba68c8;
+            color: #fff;
+            padding: 15px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 8px;
+            text-shadow: 2px 2px #000;
+            box-shadow: 0 5px #6a1b9a;
+            transition: all 0.1s;
+        }
+
+        #btn-open-shop:active { transform: translateY(3px); box-shadow: 0 2px #6a1b9a; }
+
+        #shop-modal, #confirm-modal {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 10;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+
+        #confirm-modal { z-index: 20; }
+
+        #shop-content {
+            width: 100%;
+            background: #2d1a1e;
+            border: 4px solid #ffd700;
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-shadow: 0 0 20px #ffd70055;
+            position: relative;
+            max-height: 95%;
+            overflow-y: auto;
+        }
+
+        #confirm-content {
+            width: 90%;
+            background: #2d1a1e;
+            border: 4px solid #ffd700;
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 0 0 20px #ffd70055;
+        }
+
+        #confirm-text {
+            color: #fff;
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            text-shadow: 1px 1px #000;
+            white-space: pre-line;
+        }
+
+        #confirm-buttons { display: flex; gap: 10px; }
+
+        #confirm-buttons button {
+            flex: 1;
+            padding: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 6px;
+            color: #fff;
+            text-shadow: 1px 1px #000;
+        }
+
+        #btn-confirm-yes { background: #2e7d32; border: 2px solid #4caf50; box-shadow: 0 4px #1b5e20; }
+        #btn-confirm-no { background: #c62828; border: 2px solid #e53935; box-shadow: 0 4px #b71c1c; }
+
+        #shop-title {
+            color: #ffd700;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px #000;
+            margin-bottom: 5px;
+        }
+
+        .shop-section-title {
+            color: #ffd700;
+            font-size: 14px;
+            font-weight: bold;
+            margin-top: 10px;
+            border-bottom: 1px solid #ffd70055;
+            padding-bottom: 3px;
+            text-transform: uppercase;
+        }
+
+        #btn-close-shop {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            color: #fff;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #btn-close-shop:hover { color: #ff3333; }
+
+        #upgrades-list, #bonus-list {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 8px !important;
+            position: static !important;
+            margin: 0 !important;
+            top: auto !important;
+            left: auto !important;
+            z-index: auto !important;
+            transform: none !important;
+            width: 100% !important;
+        }
+        .upgrade-btn {
+            background: #2e7d32;
+            border: 2px solid #4caf50;
+            color: #fff;
+            padding: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-shadow: 1px 1px #000;
+            box-shadow: 0 4px #1b5e20;
+            transition: background 0.1s;
+            width: 100%;
+        }
+
+        .upgrade-btn:active { transform: translateY(2px); box-shadow: 0 2px #1b5e20; }
+
+        .upgrade-btn:disabled {
+            background: #555 !important;
+            border-color: #777 !important;
+            box-shadow: 0 2px #333 !important;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .bonus-btn {
+            background: #1565c0 !important;
+            border: 2px solid #00d2ff !important;
+            box-shadow: 0 4px #0d47a1 !important;
+        }
+
+        .bonus-btn:active { transform: translateY(2px); box-shadow: 0 2px #0d47a1 !important; }
+
+        .rebirth-btn {
+            background: #ff8f00 !important;
+            border: 2px solid #ffb300 !important;
+            box-shadow: 0 4px #ff6f00 !important;
+            font-weight: 900 !important;
+        }
+
+        .rebirth-btn:active { box-shadow: 0 2px #ff6f00 !important; }
+
+        #btn-reset {
+            background: #c62828 !important;
+            border: 2px solid #e53935 !important;
+            box-shadow: 0 4px #b71c1c !important;
+            color: white;
+            padding: 8px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="top-bar">
+        <div id="gold-display">ЗОЛОТО: <span id="gold-count">0</span> 🪙</div>
+        <div id="rebirth-display">ПЕРЕРОЖДЕНИЙ: 0 | Золото: +0% | Реген: +0/сек</div>
+    </div>
+
+    <div id="monster-area">
+        <div id="monster-header">
+            <button id="btn-prev-stage" class="nav-arrow-btn" onclick="prevStage()">◀</button>
+            <div id="monster-info">
+                <div id="monster-name">Слайм ур. 1</div>
+                <div id="kill-counter">Убито: 0 / 5</div>
+            </div>
+            <button id="btn-next-stage" class="nav-arrow-btn" onclick="nextStage()">▶</button>
+        </div>
+
+        <div id="buffs-container">
+            <span id="buff-damage" class="buff-badge" style="display:none;">💪 УРОН x2: <span id="buff-damage-time">0</span>с</span>
+            <span id="buff-gold" class="buff-badge" style="display:none;">🪙 ЗОЛОТО x2: <span id="buff-gold-time">0</span>с</span>
+        </div>
+
+        <div class="bar-container">
+            <div id="hp-text" class="bar-text">Здоровье: <span id="current-hp">10</span> / <span id="max-hp">10</span></div>
+            <div id="hp-bar" class="bar-fill" style="width: 100%;"></div>
+        </div>
+
+        <div class="bar-container">
+            <div id="stamina-text" class="bar-text">Энергия: <span id="current-stamina">100</span> / <span id="max-stamina-display">100</span></div>
+            <div id="stamina-bar" class="bar-fill" style="width: 100%;"></div>
+        </div>
+
+        <img id="monster-sprite" src="stage1_1.png" alt="Монстр" draggable="false" onclick="dealDamage(event)">
+    </div>
+
+    <div id="shop-button-container">
+        <button id="btn-open-shop" onclick="openShop()">ЛАВКА КУПЦА 🛒</button>
+    </div>
+
+    <div id="shop-modal">
+        <div id="shop-content">
+            <span id="btn-close-shop" onclick="closeShop()">&times;</span>
+            <div id="shop-title">УЛУЧШЕНИЯ</div>
+
+            <div class="shop-section-title">Священный Алтарь 🌟</div>
+            <div id="rebirth-list">
+                <button id="btn-rebirth" class="upgrade-btn rebirth-btn" onclick="triggerRebirth()">
+                    <span>ПЕРЕРОЖДЕНИЕ</span>
+                    <span id="rebirth-cost">5000 🪙</span>
+                </button>
+            </div>
+
+            <div class="shop-section-title">Спецакции 📺</div>
+            <div id="bonus-list">
+                <button id="btn-bonus-gold" class="upgrade-btn bonus-btn" onclick="getGoldBonus()">
+                    <span>ДАР БОГОВ (+ЗОЛОТО)</span>
+                    <span id="ad-gold-reward">+100 🪙</span>
+                </button>
+                <button id="btn-bonus-damage" class="upgrade-btn bonus-btn" onclick="getDamageBonus()">
+                    <span>РЕЖИМ ЯРОСТИ (УРОН x2)</span>
+                    <span>60 сек</span>
+                </button>
+                <button id="btn-bonus-gold2" class="upgrade-btn bonus-btn" onclick="getGoldBoost()">
+                    <span>ЛИХОРАДКА (ЗОЛОТО x2)</span>
+                    <span>60 сек</span>
+                </button>
+            </div>
+
+            <div class="shop-section-title">Обычные товары 🪙</div>
+            <div id="upgrades-list">
+                <button id="btn-power" class="upgrade-btn" onclick="buyPower()">
+                    <span>УРОН КЛИКА (+1)</span>
+                    <span id="power-cost">15 🪙</span>
+                </button>
+                <button id="btn-dps" class="upgrade-btn" onclick="buyDPS()">
+                    <span>НАЁМНИК (АВТОУРОН)</span>
+                    <span id="dps-cost">50 🪙</span>
+                </button>
+                <button id="btn-stamina-regen" class="upgrade-btn" onclick="buyStaminaRegen()">
+                    <span>РЕГЕНЕРАЦИЯ (+2)</span>
+                    <span id="stamina-regen-cost">30 🪙</span>
+                </button>
+                <button id="btn-max-stamina" class="upgrade-btn" onclick="buyMaxStamina()">
+                    <span>ЗАПАС ЭНЕРГИИ (+25)</span>
+                    <span id="max-stamina-cost">40 🪙</span>
+                </button>
+            </div>
+
+            <button id="btn-reset" onclick="resetProgress()">СБРОСИТЬ ПРОГРЕСС ⚠</button>
+        </div>
+    </div>
+
+    <div id="confirm-modal">
+        <div id="confirm-content">
+            <div id="confirm-text"></div>
+            <div id="confirm-buttons">
+                <button id="btn-confirm-yes">ДА</button>
+                <button id="btn-confirm-no">НЕТ</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ЗАЩИТА ОТ КОНТЕКСТНОГО МЕНЮ (п. 1.6.1.8)
+    document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+    document.addEventListener('selectstart', function(e) { e.preventDefault(); });
+    document.addEventListener('dragstart', function(e) { e.preventDefault(); });
+    document.addEventListener('gesturestart', function(e) { e.preventDefault(); });
+
+    // ИГРОВЫЕ ПЕРЕМЕННЫЕ
+    var gold = 0;
+    var clickPower = 1;
+    var dps = 0;
+    var currentGlobalStage = 1;
+    var maxGlobalStage = 1;
+    var currentKills = 0;
+    var killsRequired = 5;
+    var maxHp = 10;
+    var currentHp = 10;
+    var rebirths = 0;
+    var costPower = 15;
+    var costDPS = 50;
+    var costStaminaRegen = 30;
+    var costMaxStamina = 40;
+    var stamina = 100;
+    var maxStamina = 100;
+    var staminaRegen = 4;
+    var staminaClickCost = 5;
+    var doubleDamageTimer = 0;
+    var doubleGoldTimer = 0;
+    var saveTimer = 0;
+    var gameLoopStarted = false;
+    var bootDone = false;
+    var ysdk = null;
+    var playerLang = 'ru';
+
+    var monsterBiomes = {
+        1: ["Зелёный Слайм","Каменный Слайм","Водный Слайм","Магма-Слайм","Грозовой Слайм","Токсичный Слайм","Слайм-Маг","Кибер-Слайм","Ангельский Слайм","КОРОЛЬ СЛАЙМОВ 👑"],
+        2: ["Гоблин-Разведчик","Гоблин-Воришка","Гоблин-Лучник","Гоблин-Воин","Гоблин-Шаман","Болотный Гоблин","Гоблин-Разрушитель","Адский Хобгоблин","Гоблинский Генерал","ВОЖДЬ ГОБЛИНОВ 👹"],
+        3: ["Огненный Бес","Пещерный Паук","Адская Гончая","Чёрный Грифон","Каменная Гаргулья","Кровавый Вампир","Огненный Голем","Минотавр Бездны","Некромант Смерти","ДРЕВНИЙ ДРАКОН 🐉"]
+    };
+
+    var gameContainer = document.getElementById('game-container');
+    var spriteElement = document.getElementById('monster-sprite');
+    var hpBar = document.getElementById('hp-bar');
+    var staminaBar = document.getElementById('stamina-bar');
+
+    var isLocal = window.location.hostname === 'localhost' ||
+                  window.location.hostname === '127.0.0.1' ||
+                  window.location.protocol === 'file:';
+
+    // ХЕЛПЕРЫ
+    function safeSetText(id, text) { var el = document.getElementById(id); if (el) el.innerText = text; }
+    function safeSetDisplay(id, d) { var el = document.getElementById(id); if (el) el.style.display = d; }
+    function safeSetDisabled(id, v) { var el = document.getElementById(id); if (el) el.disabled = v; }
+
+    function openShop() { safeSetDisplay('shop-modal', 'flex'); }
+    function closeShop() { safeSetDisplay('shop-modal', 'none'); }
+
+    // ПОДТВЕРЖДЕНИЕ
+    function askConfirm(text, onYes) {
+        safeSetText('confirm-text', text);
+        safeSetDisplay('confirm-modal', 'flex');
+        document.getElementById('btn-confirm-yes').onclick = function() { safeSetDisplay('confirm-modal', 'none'); onYes(); };
+        document.getElementById('btn-confirm-no').onclick = function() { safeSetDisplay('confirm-modal', 'none'); };
+    }
+
+    // ИНИЦИАЛИЗАЦИЯ SDK (п. 2.14) + GameReady (п. 1.19)
+    function bootGame() {
+        if (bootDone) return;
+        bootDone = true;
+        loadGame();
+        updateUI();
+        startGameLoop();
+    }
+
+    function notifyGameReady() {
+        if (ysdk && ysdk.features && ysdk.features.LoadingAPI && typeof ysdk.features.LoadingAPI.ready === 'function') {
+            ysdk.features.LoadingAPI.ready();
+            console.log('GameReady OK');
+        }
+    }
+
+    (function initApp() {
+        if (isLocal || typeof YaGames === 'undefined') { bootGame(); return; }
+        var t = setTimeout(function() { console.warn('SDK timeout, аварийный старт'); bootGame(); }, 5000);
+        YaGames.init().then(function(s) {
+            clearTimeout(t);
+            ysdk = s;
+            playerLang = (s.environment && s.environment.i18n && s.environment.i18n.lang) || 'ru';
+            document.documentElement.lang = playerLang;
+            console.log('Язык:', playerLang);
+            bootGame();
+            notifyGameReady();
+        }).catch(function(e) {
+            clearTimeout(t);
+            console.error('SDK error:', e);
+            bootGame();
+        });
+    })();
+
+    // РЕКЛАМА
+    function showRewardedVideo(onReward) {
+        if (ysdk && ysdk.adv && typeof ysdk.adv.showRewardedVideo === 'function') {
+            try {
+                ysdk.adv.showRewardedVideo({
+                    callbacks: {
+                        onOpen: function() { console.log('[AD] open'); },
+                        onRewarded: function() { console.log('[AD] reward'); onReward(); },
+                        onClose: function() { updateUI(); },
+                        onError: function(e) { console.error('[AD] error:', e); }
+                    }
+                });
+            } catch(e) { console.error('[AD] exception:', e); }
+        } else {
+            console.warn('[AD] dev mode');
+            onReward();
+            updateUI();
+        }
+    }
+
+    function getGoldBonus() {
+        showRewardedVideo(function() {
+            var r = getGoldRewardValue();
+            gold += r;
+            showWarning('+' + r + ' ЗОЛОТА!');
+            saveGame();
+        });
+    }
+
+    function getGoldRewardValue() { return Math.max(100, Math.round(maxHp * 2.5)); }
+
+    function getDamageBonus() {
+        showRewardedVideo(function() {
+            doubleDamageTimer = 60;
+            showWarning('РЕЖИМ ЯРОСТИ! 💪');
+            closeShop();
+        });
+    }
+
+    function getGoldBoost() {
+        showRewardedVideo(function() {
+            doubleGoldTimer = 60;
+            showWarning('ЛИХОРАДКА ЗОЛОТА! 🪙');
+            closeShop();
+        });
+    }
+
+    // ПЕРЕРОЖДЕНИЕ
+    function getRebirthCost() { return Math.round(5000 * Math.pow(4.2, rebirths)); }
+    function getRebirthGoldBonusPercent() { return rebirths * 50; }
+    function getRebirthStaminaRegenBonus() { return rebirths * 1; }
+    function getRebirthDamageMultiplier() { return 1 + Math.floor(rebirths / 2) * 1.0; }
+
+    function triggerRebirth() {
+        var c = getRebirthCost();
+        if (gold >= c) {
+            askConfirm('Совершить Перерождение?\n\nВы потеряете всё золото, урон и наёмников, но навсегда усилите регенерацию, урон и добычу золота!', function() {
+                rebirths++;
+                gold = 0; clickPower = 1; dps = 0;
+                currentGlobalStage = 1; maxGlobalStage = 1; currentKills = 0;
+                costPower = 15; costDPS = 50; costStaminaRegen = 30; costMaxStamina = 40;
+                maxStamina = 100; stamina = maxStamina; staminaRegen = 4;
+                calculateMonsterHp(); updateVisuals(); saveGame(); closeShop();
+                showWarning('ПЕРЕРОЖДЕНИЕ! ✨'); updateUI();
+            });
+        }
+    }
+
+    // НАВИГАЦИЯ
+    function prevStage() {
+        if (currentGlobalStage > 1) { currentGlobalStage--; currentKills = 0; calculateMonsterHp(); updateVisuals(); updateUI(); }
+    }
+    function nextStage() {
+        if (currentGlobalStage < maxGlobalStage) { currentGlobalStage++; currentKills = 0; calculateMonsterHp(); updateVisuals(); updateUI(); }
+    }
+
+    // РАСЧЁТ
+    function calculateMonsterHp() {
+        var base = Math.round(10 * Math.pow(1.33, currentGlobalStage - 1));
+        var boss = (currentGlobalStage % 10 === 0) ? 4 : 1;
+        maxHp = base * boss;
+        currentHp = maxHp;
+    }
+
+    // СОХРАНЕНИЕ
+    function loadGame() {
+        try {
+            var d = localStorage.getItem('monster_clicker_save_v7_final_fixed');
+            if (d) {
+                var s = JSON.parse(d);
+                gold = Number(s.gold)||0; clickPower = Number(s.clickPower)||1; dps = Number(s.dps)||0;
+                currentGlobalStage = Number(s.currentGlobalStage)||1; maxGlobalStage = Number(s.maxGlobalStage)||1;
+                currentKills = Number(s.currentKills)||0; rebirths = Number(s.rebirths)||0;
+                costPower = Number(s.costPower)||15; costDPS = Number(s.costDPS)||50;
+                staminaRegen = Number(s.staminaRegen)||4; costStaminaRegen = Number(s.costStaminaRegen)||30;
+                maxStamina = Number(s.maxStamina)||100; stamina = maxStamina; costMaxStamina = Number(s.costMaxStamina)||40;
+            }
+        } catch(e) { console.error('Load error:', e); }
+        calculateMonsterHp(); updateVisuals();
+    }
+
+    function saveGame() {
+        try {
+            localStorage.setItem('monster_clicker_save_v7_final_fixed', JSON.stringify({
+                gold:gold, clickPower:clickPower, dps:dps,
+                currentGlobalStage:currentGlobalStage, maxGlobalStage:maxGlobalStage,
+                currentKills:currentKills, rebirths:rebirths,
+                maxHp:maxHp, currentHp:currentHp,
+                costPower:costPower, costDPS:costDPS,
+                staminaRegen:staminaRegen, costStaminaRegen:costStaminaRegen,
+                maxStamina:maxStamina, costMaxStamina:costMaxStamina
+            }));
+        } catch(e) { console.error('Save error:', e); }
+    }
+
+    function resetProgress() {
+        askConfirm('Стереть весь прогресс, включая перерождения?', function() {
+            localStorage.removeItem('monster_clicker_save_v7_final_fixed');
+            location.reload();
+        });
+    }
+
+    // ВИЗУАЛ
+    function updateVisuals() {
+        var bio = Math.floor((currentGlobalStage - 1) / 10) + 1;
+        var bg = ((bio - 1) % 3) + 1;
+        var mi = ((currentGlobalStage - 1) % 10) + 1;
+        if (gameContainer) gameContainer.style.backgroundImage = "url('background" + bg + ".png')";
+        if (spriteElement) spriteElement.src = 'stage' + bg + '_' + mi + '.png';
+    }
+
+    // УРОН
+    function dealDamage(event) {
+        if (stamina < staminaClickCost) { showWarning('УСТАЛ!'); return; }
+        stamina -= staminaClickCost;
+        var base = clickPower * getRebirthDamageMultiplier();
+        var total = base;
+        var crit = false;
+        if (doubleDamageTimer > 0) { total = base * 2; crit = true; }
+        currentHp -= total;
+        createDamagePop(event, total, crit);
+        if (spriteElement) { spriteElement.classList.remove('hit'); void spriteElement.offsetWidth; spriteElement.classList.add('hit'); }
+        if (currentHp <= 0) { dieAndSpawn(); } else { updateUI(); }
+    }
+
+    function createDamagePop(event, dmg, crit) {
+        var p = document.createElement('div');
+        p.classList.add('damage-pop');
+        if (crit) p.classList.add('crit');
+        p.innerText = '-' + dmg;
+        var area = document.getElementById('monster-area');
+        if (area) {
+            var r = area.getBoundingClientRect();
+            p.style.left = (event.clientX - r.left - 10) + 'px';
+            p.style.top = (event.clientY - r.top - 20) + 'px';
+            area.appendChild(p);
+        }
+        setTimeout(function() { p.remove(); }, 400);
+    }
+
+    function showWarning(text) {
+        var w = document.createElement('div');
+        w.classList.add('warn-pop');
+        w.innerText = text;
+        var area = document.getElementById('monster-area');
+        if (area) { w.style.left='50%'; w.style.top='50%'; w.style.transform='translate(-50%,-50%)'; area.appendChild(w); }
+        setTimeout(function() { w.remove(); }, 500);
+    }
+
+    // СМЕРТЬ
+    function dieAndSpawn() {
+        var reward = Math.round(maxHp * 0.5);
+        var boss = (currentGlobalStage % 10 === 0) ? 5 : 1;
+        var rb = 1 + getRebirthGoldBonusPercent() / 100;
+        var ad = (doubleGoldTimer > 0) ? 2 : 1;
+        gold += Math.round(reward * boss * rb * ad);
+
+        if (currentGlobalStage === maxGlobalStage) {
+            if (currentGlobalStage % 10 === 0) {
+                triggerBossShake(); currentGlobalStage++; maxGlobalStage++; currentKills = 0;
+                showWarning('НОВЫЙ БИОМ! 🎉');
+            } else {
+                currentKills++;
+                if (currentKills >= killsRequired) { currentGlobalStage++; maxGlobalStage++; currentKills = 0; }
+            }
+        }
+        calculateMonsterHp(); updateVisuals(); saveGame(); updateUI();
+    }
+
+    function triggerBossShake() {
+        if (gameContainer) { gameContainer.classList.add('shake-screen'); setTimeout(function() { gameContainer.classList.remove('shake-screen'); }, 400); }
+        if (ysdk && !isLocal) { ysdk.adv.showFullscreenAdv({ callbacks: { onClose: function() {} } }); }
+    }
+
+    // УЛУЧШЕНИЯ
+    function buyPower() { if (gold >= costPower) { gold -= costPower; clickPower++; costPower = Math.round(costPower * 1.55); saveGame(); updateUI(); } }
+    function buyDPS() { if (gold >= costDPS) { gold -= costDPS; dps++; costDPS = Math.round(costDPS * 1.65); saveGame(); updateUI(); } }
+    function buyStaminaRegen() { if (gold >= costStaminaRegen) { gold -= costStaminaRegen; staminaRegen += 2; costStaminaRegen = Math.round(costStaminaRegen * 1.65); saveGame(); updateUI(); } }
+    function buyMaxStamina() { if (gold >= costMaxStamina) { gold -= costMaxStamina; maxStamina += 25; stamina = maxStamina; costMaxStamina = Math.round(costMaxStamina * 1.58); saveGame(); updateUI(); } }
+
+    // ИГРОВОЙ ЦИКЛ
+    function startGameLoop() {
+        if (gameLoopStarted) return;
+        gameLoopStarted = true;
+        setInterval(function() {
+            if (dps > 0) { currentHp -= dps; if (currentHp <= 0) dieAndSpawn(); }
+            stamina = Math.min(maxStamina, stamina + staminaRegen + getRebirthStaminaRegenBonus());
+            if (doubleDamageTimer > 0) doubleDamageTimer--;
+            if (doubleGoldTimer > 0) doubleGoldTimer--;
+            updateUI();
+            saveTimer++;
+            if (saveTimer >= 5) { saveGame(); saveTimer = 0; }
+        }, 1000);
+    }
+
+    // ОБНОВЛЕНИЕ UI
+    function updateUI() {
+        try {
+            safeSetText('gold-count', gold);
+            safeSetText('current-hp', currentHp);
+            safeSetText('max-hp', maxHp);
+            safeSetText('current-stamina', stamina);
+            safeSetText('max-stamina-display', maxStamina);
+
+            var dm = getRebirthDamageMultiplier();
+            var dt = dm > 1 ? ' (x' + dm + ' Урон)' : '';
+            safeSetText('rebirth-display', 'ПЕРЕРОЖДЕНИЙ: ' + rebirths + ' | Золото: +' + getRebirthGoldBonusPercent() + '% | Реген: +' + getRebirthStaminaRegenBonus() + '/сек' + dt);
+
+            safeSetDisabled('btn-prev-stage', currentGlobalStage === 1);
+            safeSetDisabled('btn-next-stage', currentGlobalStage === maxGlobalStage);
+            safeSetText('ad-gold-reward', '+' + getGoldRewardValue() + ' 🪙');
+
+            if (doubleDamageTimer > 0) { safeSetDisplay('buff-damage','inline-block'); safeSetText('buff-damage-time', doubleDamageTimer); }
+            else { safeSetDisplay('buff-damage','none'); }
+            if (doubleGoldTimer > 0) { safeSetDisplay('buff-gold','inline-block'); safeSetText('buff-gold-time', doubleGoldTimer); }
+            else { safeSetDisplay('buff-gold','none'); }
+
+            var bio = Math.floor((currentGlobalStage - 1) / 10) + 1;
+            var mi = ((currentGlobalStage - 1) % 10) + 1;
+            var names = monsterBiomes[((bio - 1) % 3) + 1] || monsterBiomes[1];
+            var nm = names[mi - 1];
+
+            if (mi === 10) {
+                safeSetText('monster-name', '🔥 БОСС: ' + nm + ' 🔥');
+                safeSetText('kill-counter', 'Победи босса для перехода в следующий биом!');
+                var kc = document.getElementById('kill-counter'); if (kc) kc.style.color = '#ff3333';
+            } else {
+                safeSetText('monster-name', nm + ' (' + mi + '/9)');
+                var kc2 = document.getElementById('kill-counter');
+                if (currentGlobalStage === maxGlobalStage) { safeSetText('kill-counter', 'Прогресс: Убито ' + currentKills + ' / ' + killsRequired); if (kc2) kc2.style.color = '#00ffcc'; }
+                else { safeSetText('kill-counter', 'Режим Фарма Золота 🪙'); if (kc2) kc2.style.color = '#ffd700'; }
+            }
+
+            var hp = Math.max(0, Math.min(100, (currentHp / maxHp) * 100));
+            if (hpBar) hpBar.style.width = hp + '%';
+            var st = Math.max(0, Math.min(100, (stamina / maxStamina) * 100));
+            if (staminaBar) staminaBar.style.width = st + '%';
+
+            safeSetText('power-cost', costPower + ' 🪙');
+            safeSetText('dps-cost', costDPS + ' 🪙');
+            safeSetText('stamina-regen-cost', costStaminaRegen + ' 🪙');
+            safeSetText('max-stamina-cost', costMaxStamina + ' 🪙');
+            safeSetText('rebirth-cost', getRebirthCost() + ' 🪙');
+
+            safeSetDisabled('btn-power', gold < costPower);
+            safeSetDisabled('btn-dps', gold < costDPS);
+            safeSetDisabled('btn-stamina-regen', gold < costStaminaRegen);
+            safeSetDisabled('btn-max-stamina', gold < costMaxStamina);
+            safeSetDisabled('btn-rebirth', gold < getRebirthCost());
+        } catch(e) { console.error('UI error:', e); }
+    }
+
+    // ============================================================
+    // СТРАХОВКА ДЛЯ КНОПОК РЕКЛАМЫ
+    // Платформа Яндекс Игр применяет свой CSS с !important,
+    // который прячет кнопки. Мы используем setProperty с
+    // 'important' — это бьёт ЛЮБОЙ stylesheet !important.
+    // Также чиним родителя #ads-list.
+    // ============================================================
+    // ============================================================
+    // СТРАХОВКА ДЛЯ КНОПОК БОНУСОВ + ЗАЩИТА ОТ НАЕЗДА
+    // Мобильная среда Яндекса вырывает блок из потока
+    // (position absolute / transform / margin / z-index).
+    // Возвращаем всё в статический поток и делаем видимым.
+    // ============================================================
+    setInterval(function() {
+        var list = document.getElementById('bonus-list');
+        if (!list) return;
+
+        // РОДИТЕЛЬ — вернуть в нормальный поток
+        var ls = list.style;
+        ls.setProperty('display', 'flex', 'important');
+        ls.setProperty('flex-direction', 'column', 'important');
+        ls.setProperty('gap', '8px', 'important');
+        ls.setProperty('position', 'static', 'important');
+        ls.setProperty('margin', '0', 'important');
+        ls.setProperty('top', 'auto', 'important');
+        ls.setProperty('left', 'auto', 'important');
+        ls.setProperty('z-index', 'auto', 'important');
+        ls.setProperty('transform', 'none', 'important');
+        ls.setProperty('width', '100%', 'important');
+        ls.setProperty('overflow', 'visible', 'important');
+        ls.setProperty('height', 'auto', 'important');
+        ls.setProperty('visibility', 'visible', 'important');
+        ls.setProperty('opacity', '1', 'important');
+
+        // НИЖНЯЯ СЕКЦИЯ — тоже прижать к потоку
+        var up = document.getElementById('upgrades-list');
+        if (up) {
+            var us = up.style;
+            us.setProperty('position', 'static', 'important');
+            us.setProperty('margin', '0', 'important');
+            us.setProperty('top', 'auto', 'important');
+            us.setProperty('transform', 'none', 'important');
+            us.setProperty('z-index', 'auto', 'important');
+            us.setProperty('display', 'flex', 'important');
+            us.setProperty('flex-direction', 'column', 'important');
+            us.setProperty('gap', '8px', 'important');
+            us.setProperty('width', '100%', 'important');
+        }
+
+        // КНОПКИ — пересоздать, если выбили, и сделать видимыми
+        var btns = list.querySelectorAll('button');
+        if (btns.length < 3) {
+            list.innerHTML =
+                '<button id="btn-bonus-gold" class="upgrade-btn bonus-btn" onclick="getGoldBonus()">' +
+                    '<span>ДАР БОГОВ (+ЗОЛОТО)</span><span id="ad-gold-reward">+100 🪙</span>' +
+                '</button>' +
+                '<button id="btn-bonus-damage" class="upgrade-btn bonus-btn" onclick="getDamageBonus()">' +
+                    '<span>РЕЖИМ ЯРОСТИ (УРОН x2)</span><span>60 сек</span>' +
+                '</button>' +
+                '<button id="btn-bonus-gold2" class="upgrade-btn bonus-btn" onclick="getGoldBoost()">' +
+                    '<span>ЛИХОРАДКА (ЗОЛОТО x2)</span><span>60 сек</span>' +
+                '</button>';
+            btns = list.querySelectorAll('button');
+        }
+
+        for (var i = 0; i < btns.length; i++) {
+            var s = btns[i].style;
+            s.setProperty('display', 'flex', 'important');
+            s.setProperty('visibility', 'visible', 'important');
+            s.setProperty('opacity', '1', 'important');
+            s.setProperty('min-height', '44px', 'important');
+            s.setProperty('height', 'auto', 'important');
+            s.setProperty('position', 'static', 'important');
+            s.setProperty('margin', '0', 'important');
+            s.setProperty('top', 'auto', 'important');
+            s.setProperty('transform', 'none', 'important');
+            s.setProperty('z-index', 'auto', 'important');
+            s.setProperty('overflow', 'visible', 'important');
+            s.setProperty('background', '#1565c0', 'important');
+            s.setProperty('border', '2px solid #00d2ff', 'important');
+            s.setProperty('box-shadow', '0 4px #0d47a1', 'important');
+            s.setProperty('color', '#fff', 'important');
+            s.setProperty('font-weight', 'bold', 'important');
+            s.setProperty('padding', '12px', 'important');
+            s.setProperty('border-radius', '6px', 'important');
+            s.setProperty('justify-content', 'space-between', 'important');
+            s.setProperty('align-items', 'center', 'important');
+            s.setProperty('width', '100%', 'important');
+            s.setProperty('cursor', 'pointer', 'important');
+            s.setProperty('text-shadow', '1px 1px #000', 'important');
+            s.setProperty('pointer-events', 'auto', 'important');
+        }
+    }, 300);
+
+</script>
+
+</body>
+</html>
